@@ -1,12 +1,13 @@
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, RandomizedSearchCV, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     roc_auc_score,
     precision_recall_curve,
+    average_precision_score
 )
 from imblearn.over_sampling import SMOTE
 from xgboost import XGBClassifier
@@ -31,7 +32,6 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     y = train_df[target]
 
     X = pd.get_dummies(X, drop_first=True)
-
     feature_names = X.columns.tolist()
     joblib.dump(feature_names, FEATURE_PATH)
 
@@ -40,44 +40,56 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
-
     joblib.dump(scaler, SCALER_PATH)
 
-    sm = SMOTE(random_state=42)
+    sm = SMOTE(random_state=42, sampling_strategy="auto")
     X_train_res, y_train_res = sm.fit_resample(X_train, y_train)
 
-    param_grid = {
-        "n_estimators": [200, 300, 400],
-        "max_depth": [10],
-        "learning_rate": [0.001, 0.015, 0.02],
-        "subsample": [0.8, 0.9, 1.0], # bound [0,1]
-        "colsample_bytree": [0.8, 0.9, 1.0], # bound [0,1]
-        "min_child_weight": [0.4, 0.5, 0.6],
-        "gamma": [0.2, 0.25, 0.3],
-    }
+    # ------------------- MODEL -------------------
 
     base_model = XGBClassifier(
+        objective="binary:logistic",
         eval_metric="logloss",
+        tree_method="gpu_hist",
+        predictor="gpu_predictor",
         random_state=42,
         use_label_encoder=False,
+        enable_categorical=False,
     )
+
+    param_grid = {
+        "n_estimators": [300, 400, 500, 800],
+        "max_depth": [6, 8, 10],
+        "learning_rate": [0.005, 0.01, 0.02, 0.03],
+        "subsample": [0.6, 0.8, 1.0],
+        "colsample_bytree": [0.6, 0.8, 1.0],
+        "min_child_weight": [1, 3, 5],
+        "gamma": [0, 0.1, 0.2, 0.3],
+        "reg_alpha": [0, 0.01, 0.1],
+        "reg_lambda": [1, 1.5, 2],
+        "scale_pos_weight": [1, 2, 5, 10],
+    }
+
+    # stratified k-fold cross validation
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     search = RandomizedSearchCV(
         base_model,
         param_distributions=param_grid,
-        n_iter=25,
+        n_iter=40,
         scoring="roc_auc",
-        cv=3,
+        cv=skf,
         verbose=1,
         n_jobs=-1,
         random_state=42,
     )
 
-    print("Tuning hyperparameters...")
+    print("Tuning hyperparameters (this may take a while)...")
     search.fit(X_train_res, y_train_res)
     best_model = search.best_estimator_
-
     print("Best Parameters Found:", search.best_params_)
+
+    # ------------------- VALIDATION -------------------
 
     y_proba = best_model.predict_proba(X_test)[:, 1]
 
@@ -88,20 +100,22 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     threshold = round(best_threshold, 3)
 
     y_pred = (y_proba >= best_threshold).astype(int)
+    auc = roc_auc_score(y_test, y_proba)
+    avg_precision = average_precision_score(y_test, y_proba)
 
-    print("\nOptimal Threshold:", threshold)
+    print(f"\nOptimal Threshold: {threshold}")
     print("\nConfusion Matrix:")
     print(confusion_matrix(y_test, y_pred))
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred))
-    print("ROC-AUC Score:", roc_auc_score(y_test, y_proba))
+    print(f"ROC-AUC: {auc:.4f}")
+    print(f"Average Precision (PR-AUC): {avg_precision:.4f}")
 
     joblib.dump(best_model, MODEL_PATH)
 
-    # TEST----------------------------------------------------------------
+    # TEST ----------------------------------------------------------------
     test_encoded = pd.get_dummies(test_df, drop_first=True)
     test_encoded = test_encoded.reindex(columns=feature_names, fill_value=0)
-
     X_test = scaler.transform(test_encoded)
 
     y_proba = best_model.predict_proba(X_test)[:, 1]
