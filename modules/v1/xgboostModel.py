@@ -4,7 +4,8 @@ import shutil
 import joblib
 import numpy as np
 import pandas as pd
-import warnings
+import json
+from datetime import datetime
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler
@@ -161,6 +162,19 @@ def trainXgboost(version: int, train_df) -> float:
     search.fit(X_train_res, y_train_res, **fit_params)
     best_model = search.best_estimator_
     print("Best Parameters Found:", search.best_params_)
+
+    param_data = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "best_score": search.best_score_,
+        "best_params": search.best_params_
+    }
+
+    with open(PARAM_PATH, "a") as f:
+        json.dump(param_data, f, indent=4)
+        f.write("\n")  # one run per line
+
+    print("Logged best parameters to " + PARAM_PATH + ".json")
+
 
     best_model.set_params(tree_method="hist", device="cuda")
 
