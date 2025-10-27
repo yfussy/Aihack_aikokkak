@@ -73,10 +73,15 @@ def trainLogisticRegression(version: int, train_df, test_df, ids):
     joblib.dump(model, MODEL_PATH)
 
     # TEST----------------------------------------------------------------
-    X_test = scaler.transform(test_df)
+    train_encoded = pd.get_dummies(train_df.drop(columns=["default_12month"], errors="ignore"), drop_first=True)
+    test_encoded  = pd.get_dummies(test_df, drop_first=True)
+
+    # Align test with training features
+    _, test_encoded = train_encoded.align(test_encoded, join="left", axis=1, fill_value=0)
+
+    X_test = scaler.transform(test_encoded)
 
     y_proba = model.predict_proba(X_test)[:, 1]
-
     pred = (y_proba >= threshold).astype(int)
 
     output_df = pd.DataFrame({

@@ -99,10 +99,12 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     joblib.dump(best_model, MODEL_PATH)
 
     # TEST----------------------------------------------------------------
-    X_test_xgb = scaler.transform(train_df)
+    test_encoded = pd.get_dummies(test_df, drop_first=True)
+    test_encoded = test_encoded.reindex(columns=feature_names, fill_value=0)
 
-    y_proba = best_model.predict_proba(X_test_xgb)[:, 1]
+    X_test = scaler.transform(test_encoded)
 
+    y_proba = best_model.predict_proba(X_test)[:, 1]
     pred = (y_proba >= threshold).astype(int)
 
     output_df = pd.DataFrame({

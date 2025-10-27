@@ -1,14 +1,22 @@
 BASE_DIR = "../../"
 
+
+# get train/test dataset -> getDataDir("train"/"test") [w/o version]
+# get cleaned train/test dataset -> getDataDir("train"/"test", version) [w/ version]
 def getDataDir(type: str, version: int=0) -> str:
     dir = BASE_DIR + "data/"
-    if (type == "cleaned"):
-        return dir + "cleaned_data_v" + str(version) + ".csv"
+    if (version):
+        dir += "cleaned_"
     if (type == "train"):
-        return dir + "train_dataset.csv"
+        dir += "train_dataset"
     if (type == "test"):
-        return dir + "test_without_gt.csv"
+        dir += "test_without_gt"
+    if (version):
+        dir += "_v" + str(version)
+    return dir + ".csv"
 
+# get model -> getModelDir("model"/"scaler"/"feature", version) [w/o custom]
+# get model w/ custom name -> getModeldir("name", version, True) [w/ custom]
 def getModelDir(type: str, version: int, custom: bool=False) -> str:
     dir = BASE_DIR + "model/v" + str(version) + "/"
     if (custom):
@@ -20,6 +28,8 @@ def getModelDir(type: str, version: int, custom: bool=False) -> str:
     if (type == "feature"):
         return dir + "train_features_model.pkl"
 
+# get prediction -> getPredDir(version) [w/o name]
+# get prediction w/ custom name -> getPredDir(version, "name") [w/ name]
 def getPredDir(version: int, name: str="") -> str:
     if (name):
         return BASE_DIR + "prediction/" + name + "_v" + str(version) + ".csv"
