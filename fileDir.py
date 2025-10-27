@@ -8,12 +8,12 @@ def getDataDir(type: str, version: int=0) -> str:
     if (version):
         dir += "cleaned_"
     if (type == "train"):
-        dir += "train_dataset.csv"
+        dir += "train_dataset"
     if (type == "test"):
-        dir += "test_without_gt.csv"
+        dir += "test_without_gt"
     if (version):
-        dir += "_v" + str(version) + ".csv"
-    return dir
+        dir += "_v" + str(version)
+    return dir + ".csv"
 
 # get model -> getModelDir("model"/"scaler"/"feature", version) [w/o custom]
 # get model w/ custom name -> getModeldir("name", version, True) [w/ custom]
