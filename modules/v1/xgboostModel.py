@@ -220,11 +220,3 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     output_df.to_csv(PRED_PATH, index=False)
     print(f"\nPredictions saved to: {PRED_PATH}")
     print("Training + prediction complete.")
-
-
-
-train_df = pd.read_csv(getDataDir("train", 1))
-test_df = pd.read_csv(getDataDir("test", 1))
-ids = test_df["ID"]
-
-trainTestXgboost(1, train_df, test_df, ids)
