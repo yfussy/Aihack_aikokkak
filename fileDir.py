@@ -15,18 +15,24 @@ def getDataDir(type: str, version: int=0) -> str:
         dir += "_v" + str(version)
     return dir + ".csv"
 
-# get model -> getModelDir("model"/"scaler"/"feature", version) [w/o custom]
-# get model w/ custom name -> getModeldir("name", version, True) [w/ custom]
-def getModelDir(type: str, version: int, custom: bool=False) -> str:
+# get type -> getModelDir("model"/"scaler"/"feature", version) [w/o model]
+# get type w/ custom model -> getModeldir("model"/"scaler"/"feature", version, "model") [w/ model]
+def getModelDir(type: str, version: int, model: str="") -> str:
     dir = BASE_DIR + "model/v" + str(version) + "/"
-    if (custom):
-        return dir + type + ".pkl"
     if (type == "model"):
-        return dir + "model.pkl"
+        dir += "model"
     if (type == "scaler"):
-        return dir + "scaler_model.pkl"
+        dir += "scaler_model"
     if (type == "feature"):
-        return dir + "train_features_model.pkl"
+        dir += "train_features_model"
+    if (type == "param"):
+        dir += "param_log"
+    if (model):
+        dir += "_" + model
+
+    if (type == "param"):
+        return dir + ".json"
+    return dir + ".pkl"
 
 # get prediction -> getPredDir(version) [w/o name]
 # get prediction w/ custom name -> getPredDir(version, "name") [w/ name]

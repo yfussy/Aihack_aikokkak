@@ -4,7 +4,8 @@ import shutil
 import joblib
 import numpy as np
 import pandas as pd
-import warnings
+import json
+from datetime import datetime
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler
@@ -32,13 +33,7 @@ except Exception as e:
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 if root_path not in sys.path:
     sys.path.append(root_path)
-from fileDir import getModelDir, getPredDir, getDataDir
-
-
-# ==================== SETTINGS ====================
-N_SPLITS = 4
-N_ITER = 30
-# ==================== SETTINGS ====================
+from fileDir import getModelDir, getPredDir
 
 def _detect_gpu():
     """
@@ -61,12 +56,23 @@ def _detect_gpu():
 
     return False
 
+# ==================== SETTINGS ====================
+if (_detect_gpu()):
+    N_SPLITS = 4
+    N_ITER = 30
+else:
+    N_SPLITS = 3
+    N_ITER = 10
+# ==================== SETTINGS ====================
 
-def trainTestXgboost(version: int, train_df, test_df, ids):
-    FEATURE_PATH = getModelDir("train_features_model_xgboost", version, True)
-    SCALER_PATH = getModelDir("scaler_model_xgboost", version, True)
-    MODEL_PATH = getModelDir("model_xgboost", version, True)
-    PRED_PATH = getPredDir(version, "prediction_xgboost")
+def trainXgboost(version: int, train_df) -> float:
+    """
+    Returns threshold value -> sends this value to testXgboost()
+    """
+    FEATURE_PATH = getModelDir("feature", version, "xgboost")
+    SCALER_PATH = getModelDir("scaler", version, "xgboost")
+    MODEL_PATH = getModelDir("model", version, "xgboost")
+    PARAM_PATH = getModelDir("param", version, "xgboost")
 
     # ------------------- PREP -------------------
     target = "default_12month"
@@ -129,16 +135,6 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
         "reg_lambda": [1, 1.5, 2],
         # scale_pos_weight helps with imbalance if desired (tune or set based on class ratio)
         "scale_pos_weight": [1, max(1, int(imbalance_ratio // 1)), max(1, int(imbalance_ratio // 1) * 2)],
-        # "n_estimators": [600],
-        # "max_depth": [10],
-        # "learning_rate": [0.02],
-        # "subsample": [0.8],
-        # "colsample_bytree": [0.6],
-        # "min_child_weight": [3],
-        # "gamma": [0],
-        # "reg_alpha": [0.01],
-        # "reg_lambda": [1],
-        # "scale_pos_weight": [1],
     }
 
     # use stratified k-fold for outer cross-validation in RandomizedSearch
@@ -166,6 +162,19 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     search.fit(X_train_res, y_train_res, **fit_params)
     best_model = search.best_estimator_
     print("Best Parameters Found:", search.best_params_)
+
+    param_data = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "best_score": search.best_score_,
+        "best_params": search.best_params_
+    }
+
+    with open(PARAM_PATH, "a") as f:
+        json.dump(param_data, f, indent=4)
+        f.write("\n")  # one run per line
+
+    print("Logged best parameters to " + PARAM_PATH + ".json")
+
 
     best_model.set_params(tree_method="hist", device="cuda")
 
@@ -203,13 +212,22 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     # persist artifacts
     joblib.dump(best_model, MODEL_PATH)
 
-    # ------------------- TEST PREDICTION -------------------
-    # ensure test columns match training features
+    return threshold
+
+def testXgboost(version, test_df, ids, threshold):
+    FEATURE_PATH = getModelDir("feature", version, "xgboost")
+    SCALER_PATH = getModelDir("scaler", version, "xgboost")
+    MODEL_PATH = getModelDir("model", version, "xgboost")
+    PRED_PATH = getPredDir(3, "prediction_xgboost")
+
+    model: XGBClassifier = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+    feature_names = joblib.load(FEATURE_PATH)
     test_encoded = pd.get_dummies(test_df, drop_first=True)
     test_encoded = test_encoded.reindex(columns=feature_names, fill_value=0)
     test_encoded = scaler.transform(test_encoded)
 
-    y_proba_test = best_model.predict_proba(test_encoded)[:, 1]
+    y_proba_test = model.predict_proba(test_encoded)[:, 1]
     pred = (y_proba_test >= threshold).astype(int)
 
     output_df = pd.DataFrame({
