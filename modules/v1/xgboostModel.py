@@ -4,7 +4,7 @@ import shutil
 import joblib
 import numpy as np
 import pandas as pd
-import warnings
+import json
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
 from sklearn.preprocessing import StandardScaler
@@ -118,27 +118,27 @@ def trainTestXgboost(version: int, train_df, test_df, ids):
     )
 
     param_grid = {
-        "n_estimators": [300, 400, 600],
-        "max_depth": [6, 8, 10],
-        "learning_rate": [0.005, 0.01, 0.02],
-        "subsample": [0.6, 0.8, 1.0],
-        "colsample_bytree": [0.6, 0.8, 1.0],
-        "min_child_weight": [1, 3, 5],
-        "gamma": [0, 0.1, 0.2, 0.3],
-        "reg_alpha": [0, 0.01, 0.1],
-        "reg_lambda": [1, 1.5, 2],
-        # scale_pos_weight helps with imbalance if desired (tune or set based on class ratio)
-        "scale_pos_weight": [1, max(1, int(imbalance_ratio // 1)), max(1, int(imbalance_ratio // 1) * 2)],
-        # "n_estimators": [600],
-        # "max_depth": [10],
-        # "learning_rate": [0.02],
-        # "subsample": [0.8],
-        # "colsample_bytree": [0.6],
-        # "min_child_weight": [3],
-        # "gamma": [0],
-        # "reg_alpha": [0.01],
-        # "reg_lambda": [1],
-        # "scale_pos_weight": [1],
+        # "n_estimators": [300, 400, 600],
+        # "max_depth": [6, 8, 10],
+        # "learning_rate": [0.005, 0.01, 0.02],
+        # "subsample": [0.6, 0.8, 1.0],
+        # "colsample_bytree": [0.6, 0.8, 1.0],
+        # "min_child_weight": [1, 3, 5],
+        # "gamma": [0, 0.1, 0.2, 0.3],
+        # "reg_alpha": [0, 0.01, 0.1],
+        # "reg_lambda": [1, 1.5, 2],
+        # # scale_pos_weight helps with imbalance if desired (tune or set based on class ratio)
+        # "scale_pos_weight": [1, max(1, int(imbalance_ratio // 1)), max(1, int(imbalance_ratio // 1) * 2)],
+        "n_estimators": [300],
+        "max_depth": [10],
+        "learning_rate": [0.02],
+        "subsample": [0.8],
+        "colsample_bytree": [1.0],
+        "min_child_weight": [5],
+        "gamma": [0.2],
+        "reg_alpha": [0],
+        "reg_lambda": [1],
+        "scale_pos_weight": [5],
     }
 
     # use stratified k-fold for outer cross-validation in RandomizedSearch
