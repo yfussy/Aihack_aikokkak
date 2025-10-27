@@ -9,8 +9,10 @@ def getDataDir(type: str, version: int=0) -> str:
     if (type == "test"):
         return dir + "test_without_gt.csv"
 
-def getModelDir(type: str, version: int) -> str:
+def getModelDir(type: str, version: int, custom: bool=False) -> str:
     dir = BASE_DIR + "model/v" + str(version) + "/"
+    if (custom):
+        return dir + type + ".pkl"
     if (type == "model"):
         return dir + "model.pkl"
     if (type == "scaler"):
@@ -18,5 +20,7 @@ def getModelDir(type: str, version: int) -> str:
     if (type == "feature"):
         return dir + "train_features_model.pkl"
 
-def getPredDir(version: int) -> str:
+def getPredDir(version: int, name: str="") -> str:
+    if (name):
+        return BASE_DIR + "prediction/" + name + "_v" + str(version) + ".csv"
     return BASE_DIR + "prediction/predictions_v" + str(version) + ".csv"
