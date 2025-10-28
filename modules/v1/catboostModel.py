@@ -8,7 +8,7 @@ from datetime import datetime
 from catboost import CatBoostClassifier, Pool, cv
 import optuna
 import json
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     classification_report,
@@ -44,9 +44,8 @@ def _detect_gpu():
 
     return False
 
-def trainCatboost(version: int, train_df) -> float:
+def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=False) -> float:
     FEATURE_PATH = getModelDir("feature", version, "catboost")
-    SCALER_PATH = getModelDir("scaler", version, "catboost")
     MODEL_PATH = getModelDir("model", version, "catboost")
     PARAM_PATH = getModelDir("param", version, "catboost")
 
@@ -55,17 +54,15 @@ def trainCatboost(version: int, train_df) -> float:
     X = train_df.drop(columns=[target])
     y = train_df[target]
 
-    categorical_features = X.select_dtypes(include=["object", "category"]).columns.tolist()
-    numeric_features = X.select_dtypes(include=["float64", "int64"]).columns.tolist()
+    # Ensure categorical columns exist
+    categorical_features = [col for col in categorical_columns if col in X.columns]
+
+    # Convert categorical columns to string (CatBoost requires this when numbers are used)
+    X[categorical_features] = X[categorical_features].astype(str)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-
-    scaler = StandardScaler()
-    X_train[numeric_features] = scaler.fit_transform(X_train[numeric_features])
-    X_test[numeric_features] = scaler.transform(X_test[numeric_features])
-    joblib.dump(scaler, SCALER_PATH)
 
     scale_pos_weight = len(y_train[y_train == 0]) / len(y_train[y_train == 1])
 
@@ -76,26 +73,43 @@ def trainCatboost(version: int, train_df) -> float:
 
     print("GPU detected -> using CatBoost GPU training." if _detect_gpu() else "No GPU detected -> using CPU training.")
 
+    n_splits = 5 if hypertune else 3
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
     # ----------- OPTUNA TUNING -----------
     def objective(trial):
-    # GPU-safe bootstrap
+        # GPU-safe bootstrap
         bootstrap_type = "Bayesian" if _detect_gpu() else trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "Poisson"])
+        iterations = trial.suggest_int("iterations", 500, 1500) if hypertune else trial.suggest_int("iterations", 400, 1000)
 
         params = {
-            "iterations": trial.suggest_int("iterations", 300, 1000),
-            "depth": trial.suggest_int("depth", 4, 10),
-            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-3, 10.0, log=True),
-            "random_strength": trial.suggest_float("random_strength", 0.5, 5.0),
-            "border_count": trial.suggest_int("border_count", 32, 255),
-            "bootstrap_type": bootstrap_type,
-            "scale_pos_weight": scale_pos_weight,
-            "eval_metric": "AUC",
-            "loss_function": "Logloss",
-            "verbose": False,
-            "task_type": "GPU" if _detect_gpu() else "CPU",
-            "devices": "0" if _detect_gpu() else None,
+            "task_type": "GPU",
+            "boostrap_type": bootstrap_type,
+            "iterations": iterations,
+            "depth": trial.suggest_int("depth", 3, 8),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
+            "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-2, 10.0, log=True),
+            "random_strength": trial.suggest_float("random_strength", 0.1, 5.0, log=True),
+            "bagging_temperature": trial.suggest_float("bagging_temperature", 0, 1),
+            "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Lossguide"]),
+            "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 1, 5),
+            "leaf_estimation_method": trial.suggest_categorical("leaf_estimation_method", ["Newton", "Gradient"]),
+            "one_hot_max_size": trial.suggest_int("one_hot_max_size", 2, 10),
+            "max_ctr_complexity": trial.suggest_int("max_ctr_complexity", 1, 3),
+            "auto_class_weights": trial.suggest_categorical("auto_class_weights", ["Balanced", None]),
+            "od_type": trial.suggest_categorical("od_type", ["IncToDec"]),
+            "od_wait": trial.suggest_int("od_wait", 30, 100),
+
         }
+
+        params["rsm"] = trial.suggest_float("rsm", 0.7, 1.0) if not _detect_gpu() else None
+
+        if _detect_gpu():
+            simple_ctr_options = ["Borders", "Buckets", "FloatTargetMeanValue", "FeatureFreq"]
+        else:
+            simple_ctr_options = ["Borders", "Counter", "Buckets", "BinarizedTargetMeanValue", "FloatTargetMeanValue", "FeatureFreq"]
+
+        params["simple_ctr"] = trial.suggest_categorical("simple_ctr", simple_ctr_options)
 
         # bagging_temperature only allowed for Bayesian
         if bootstrap_type == "Bayesian":
@@ -106,16 +120,21 @@ def trainCatboost(version: int, train_df) -> float:
             params["subsample"] = trial.suggest_float("subsample", 0.5, 1.0)
 
         model = CatBoostClassifier(**params)
-        model.fit(train_pool, eval_set=eval_pool, early_stopping_rounds=50, verbose=False)
-
-        preds = model.predict_proba(X_test)[:, 1]
-        auc = roc_auc_score(y_test, preds)
-
-        return auc
+        aucs = []
+        for train_idx, val_idx in skf.split(X, y):
+            X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+            y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+            pool_train = Pool(X_train, y_train, cat_features=categorical_features)
+            pool_val = Pool(X_val, y_val, cat_features=categorical_features)
+            model.fit(pool_train, eval_set=pool_val, verbose=False, early_stopping_rounds=100)
+            preds = model.predict_proba(X_val)[:, 1]
+            aucs.append(roc_auc_score(y_val, preds))
+        return np.mean(aucs)
 
     print("Running hyperparameter tuning with Optuna...")
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=25, show_progress_bar=True)
+    n_trials = 40 if hypertune else 10
+    study.optimize(objective, n_trials=n_trials, timeout=None, show_progress_bar=True)
 
     print("\nBest Parameters Found:")
     print(study.best_params)
@@ -143,11 +162,10 @@ def trainCatboost(version: int, train_df) -> float:
         "random_seed": 42,
         "task_type": "GPU" if _detect_gpu() else "CPU",
         "verbose": 200,
-        "early_stopping_rounds": 100,
     }
 
     final_model = CatBoostClassifier(**final_params)
-    final_model.fit(train_pool, eval_set=eval_pool, use_best_model=True)
+    final_model.fit(train_pool, eval_set=eval_pool, use_best_model=True, plot=True)
 
     y_proba = final_model.predict_proba(X_test)[:, 1]
 
@@ -171,23 +189,19 @@ def trainCatboost(version: int, train_df) -> float:
 
     return threshold
 
-def testCatboost(version: int, test_df, ids, threshold):
+def testCatboost(version: int, test_df, ids, threshold, categorical_columns):
     FEATURE_PATH = getModelDir("feature", version, "catboost")
-    SCALER_PATH = getModelDir("scaler", version, "catboost")
     MODEL_PATH = getModelDir("model", version, "catboost")
-    PRED_PATH = getPredDir(3, "prediction_catboost")
+    PRED_PATH = getPredDir(version, "prediction_catboost")
 
-    scaler = joblib.load(SCALER_PATH)
     feature_names = joblib.load(FEATURE_PATH)
     model = CatBoostClassifier()
     model.load_model(MODEL_PATH)
 
     test_df = test_df[feature_names]
 
-    num_features = test_df.select_dtypes(include=["float64", "int64"]).columns.tolist()
-    test_df[num_features] = scaler.transform(test_df[num_features])
 
-    cat_features = [col for col in feature_names if col not in num_features]
+    cat_features = [col for col in categorical_columns if col in test_df.columns]
     test_df[cat_features] = test_df[cat_features].astype(str)
 
     y_proba = model.predict_proba(test_df)[:, 1]
