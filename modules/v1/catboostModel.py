@@ -78,19 +78,32 @@ def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=F
 
     # ----------- OPTUNA TUNING -----------
     def objective(trial):
-        # GPU-safe bootstrap
-        bootstrap_type = "Bayesian" if _detect_gpu() else trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "Poisson"])
-        iterations = trial.suggest_int("iterations", 500, 1500) if hypertune else trial.suggest_int("iterations", 400, 1000)
+        # GPU detection
+        if _detect_gpu():
+            task_type = "GPU"
+            bootstrap_type = "Bayesian" 
+            bagging_temperature = trial.suggest_float("bagging_temperature", 0, 1)
+            iterations = trial.suggest_int("iterations", 500, 1500) if hypertune else trial.suggest_int("iterations", 400, 1000)
+            rsm = trial.suggest_float("rsm", 0.7, 1.0) if not _detect_gpu() else None
+            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Buckets", "FloatTargetMeanValue", "FeatureFreq"])
+        else:
+            task_type = "CPU"
+            bootstrap_type = trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "Poisson"])
+            subsample = trial.suggest_float("subsample", 0.5, 1.0)
+            iterations = trial.suggest_int("iterations", 400, 1000)
+            rsm = None
+            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Counter", "Buckets", "BinarizedTargetMeanValue", "FloatTargetMeanValue", "FeatureFreq"])
 
         params = {
-            "task_type": "GPU",
-            "boostrap_type": bootstrap_type,
+            "task_type": task_type,
+            "bootstrap_type": bootstrap_type,
+            "bagging_temperature": bagging_temperature,
+            "subsample": subsample,
             "iterations": iterations,
             "depth": trial.suggest_int("depth", 3, 8),
             "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.1, log=True),
             "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-2, 10.0, log=True),
             "random_strength": trial.suggest_float("random_strength", 0.1, 5.0, log=True),
-            "bagging_temperature": trial.suggest_float("bagging_temperature", 0, 1),
             "grow_policy": trial.suggest_categorical("grow_policy", ["SymmetricTree", "Lossguide"]),
             "leaf_estimation_iterations": trial.suggest_int("leaf_estimation_iterations", 1, 5),
             "leaf_estimation_method": trial.suggest_categorical("leaf_estimation_method", ["Newton", "Gradient"]),
@@ -99,25 +112,9 @@ def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=F
             "auto_class_weights": trial.suggest_categorical("auto_class_weights", ["Balanced", None]),
             "od_type": trial.suggest_categorical("od_type", ["IncToDec"]),
             "od_wait": trial.suggest_int("od_wait", 30, 100),
-
+            "rsm": rsm,
+            "simple_ctr": simple_ctr,
         }
-
-        params["rsm"] = trial.suggest_float("rsm", 0.7, 1.0) if not _detect_gpu() else None
-
-        if _detect_gpu():
-            simple_ctr_options = ["Borders", "Buckets", "FloatTargetMeanValue", "FeatureFreq"]
-        else:
-            simple_ctr_options = ["Borders", "Counter", "Buckets", "BinarizedTargetMeanValue", "FloatTargetMeanValue", "FeatureFreq"]
-
-        params["simple_ctr"] = trial.suggest_categorical("simple_ctr", simple_ctr_options)
-
-        # bagging_temperature only allowed for Bayesian
-        if bootstrap_type == "Bayesian":
-            params["bagging_temperature"] = trial.suggest_float("bagging_temperature", 0, 1)
-        
-        # subsample only for Bernoulli or Poisson on CPU
-        if bootstrap_type in ["Bernoulli", "Poisson"] and not _detect_gpu():
-            params["subsample"] = trial.suggest_float("subsample", 0.5, 1.0)
 
         model = CatBoostClassifier(**params)
         aucs = []
