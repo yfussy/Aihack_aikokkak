@@ -1,0 +1,21 @@
+{
+    "timestamp": "2025-10-31 21:15:02",
+    "best_score": 0.6442815768241905,
+    "best_params": {
+        "bagging_temperature": 0.8771511195429196,
+        "iterations": 735,
+        "simple_ctr": "Borders",
+        "depth": 3,
+        "learning_rate": 0.03391833574648238,
+        "l2_leaf_reg": 2.6507791345353633,
+        "random_strength": 2.7548286326902724,
+        "grow_policy": "Lossguide",
+        "leaf_estimation_iterations": 2,
+        "leaf_estimation_method": "Newton",
+        "one_hot_max_size": 8,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 54
+    }
+}
