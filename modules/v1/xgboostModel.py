@@ -98,14 +98,6 @@ def trainXgboost(version: int, train_df) -> float:
         print("No GPU detected -> using XGBoost CPU training (hist).")
 
     # ------------------- MODEL + SEARCH -------------------
-    base_model = XGBClassifier(
-        objective="binary:logistic",
-        eval_metric="logloss",
-        tree_method="hist",
-        device=device,
-        random_state=42,
-        early_stopping_rounds=50,
-    )
 
     imbalance_ratio = (y_train.value_counts().max() / y_train.value_counts().min())
 
