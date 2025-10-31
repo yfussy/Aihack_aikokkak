@@ -80,15 +80,15 @@ def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> floa
             bagging_temperature = trial.suggest_float("bagging_temperature", 0, 1)
             iterations = trial.suggest_int("iterations", 500, 1500) if hypertune else trial.suggest_int("iterations", 400, 1000)
             rsm = trial.suggest_float("rsm", 0.7, 1.0) if not _detect_gpu() else None
-            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Buckets", "FloatTargetMeanValue", "FeatureFreq"])
+            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Buckets"])
         else:
             task_type = "CPU"
-            bootstrap_type = trial.suggest_categorical("bootstrap_type", ["Bayesian", "Bernoulli", "Poisson"])
+            bootstrap_type = trial.suggest_categorical("bootstrap_type", ["Bernoulli"])
             subsample = trial.suggest_float("subsample", 0.5, 1.0)
             bagging_temperature = None
             iterations = trial.suggest_int("iterations", 400, 1000)
             rsm = None
-            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Counter", "Buckets", "BinarizedTargetMeanValue", "FloatTargetMeanValue", "FeatureFreq"])
+            simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Counter", "Buckets", "BinarizedTargetMeanValue"])
 
         params = {
             "task_type": task_type,
