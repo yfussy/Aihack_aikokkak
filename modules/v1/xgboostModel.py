@@ -8,7 +8,6 @@ import json
 from datetime import datetime
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
@@ -70,7 +69,6 @@ def trainXgboost(version: int, train_df) -> float:
     Returns threshold value -> sends this value to testXgboost()
     """
     FEATURE_PATH = getModelDir("feature", version, "xgboost")
-    SCALER_PATH = getModelDir("scaler", version, "xgboost")
     MODEL_PATH = getModelDir("model", version, "xgboost")
     PARAM_PATH = getModelDir("param", version, "xgboost")
 
@@ -88,11 +86,6 @@ def trainXgboost(version: int, train_df) -> float:
     X_train, X_valid, y_train, y_valid = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
-
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_valid = scaler.transform(X_valid)
-    joblib.dump(scaler, SCALER_PATH)
 
     # SMOTE (apply if imbalance is significant)
     imbalance_ratio = (y_train.value_counts().max() / y_train.value_counts().min())
@@ -216,16 +209,13 @@ def trainXgboost(version: int, train_df) -> float:
 
 def testXgboost(version, test_df, ids, threshold):
     FEATURE_PATH = getModelDir("feature", version, "xgboost")
-    SCALER_PATH = getModelDir("scaler", version, "xgboost")
     MODEL_PATH = getModelDir("model", version, "xgboost")
     PRED_PATH = getPredDir(3, "prediction_xgboost")
 
     model: XGBClassifier = joblib.load(MODEL_PATH)
-    scaler = joblib.load(SCALER_PATH)
     feature_names = joblib.load(FEATURE_PATH)
     test_encoded = pd.get_dummies(test_df, drop_first=True)
     test_encoded = test_encoded.reindex(columns=feature_names, fill_value=0)
-    test_encoded = scaler.transform(test_encoded)
 
     y_proba_test = model.predict_proba(test_encoded)[:, 1]
     pred = (y_proba_test >= threshold).astype(int)
