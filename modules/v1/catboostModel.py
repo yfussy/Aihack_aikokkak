@@ -44,7 +44,7 @@ def _detect_gpu():
 
     return False
 
-def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=False) -> float:
+def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> float:
     FEATURE_PATH = getModelDir("feature", version, "catboost")
     MODEL_PATH = getModelDir("model", version, "catboost")
     PARAM_PATH = getModelDir("param", version, "catboost")
@@ -53,15 +53,11 @@ def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=F
     target = "default_12month"
     if target not in train_df.columns:
         raise ValueError(f"Target column '{target}' not found in dataset!")
+    
+    categorical_features = train_df.select_dtypes(include="object").columns.to_list()
 
     X = train_df.drop(columns=[target])
     y = train_df[target]
-
-    # Ensure categorical columns exist
-    categorical_features = [col for col in categorical_columns if col in X.columns]
-
-    # Convert categorical columns to string (CatBoost requires this when numbers are used)
-    X[categorical_features] = X[categorical_features].astype(str)
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
@@ -182,7 +178,7 @@ def trainCatboost(version: int, train_df, categorical_columns: list, hypertune=F
 
     return threshold
 
-def testCatboost(version: int, test_df, ids, threshold, categorical_columns):
+def testCatboost(version: int, test_df, ids, threshold):
     FEATURE_PATH = getModelDir("feature", version, "catboost")
     MODEL_PATH = getModelDir("model", version, "catboost")
     PRED_PATH = getPredDir(version, "prediction_catboost")
@@ -192,9 +188,6 @@ def testCatboost(version: int, test_df, ids, threshold, categorical_columns):
     model.load_model(MODEL_PATH)
 
     test_df = test_df[feature_names]
-
-    cat_features = [col for col in categorical_columns if col in test_df.columns]
-    test_df[cat_features] = test_df[cat_features].astype(str)
 
     y_proba = model.predict_proba(test_df)[:, 1]
     pred = (y_proba >= threshold).astype(int)
