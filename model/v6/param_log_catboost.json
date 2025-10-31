@@ -1,0 +1,42 @@
+{
+    "timestamp": "2025-11-01 00:47:17",
+    "best_score": 0.6254794114345008,
+    "best_params": {
+        "bagging_temperature": 0.3918871895177727,
+        "iterations": 459,
+        "simple_ctr": "Buckets",
+        "depth": 3,
+        "learning_rate": 0.0652109593671905,
+        "l2_leaf_reg": 0.3088047431673824,
+        "random_strength": 0.6592422216312022,
+        "grow_policy": "Lossguide",
+        "leaf_estimation_iterations": 2,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 9,
+        "max_ctr_complexity": 1,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 49
+    }
+}
+{
+    "timestamp": "2025-11-01 01:59:13",
+    "best_score": 0.6254400826316892,
+    "best_params": {
+        "bagging_temperature": 0.8560052058039547,
+        "iterations": 591,
+        "simple_ctr": "Buckets",
+        "depth": 4,
+        "learning_rate": 0.02503440517117324,
+        "l2_leaf_reg": 7.574158474399039,
+        "random_strength": 0.15077006735730086,
+        "grow_policy": "Lossguide",
+        "leaf_estimation_iterations": 4,
+        "leaf_estimation_method": "Newton",
+        "one_hot_max_size": 6,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 31
+    }
+}

@@ -68,7 +68,7 @@ def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> floa
 
     print("GPU detected -> using CatBoost GPU training." if _detect_gpu() else "No GPU detected -> using CPU training.")
 
-    skf = StratifiedKFold(n_splits=5 if hypertune else 3, shuffle=True, random_state=42)
+    skf = StratifiedKFold(n_splits=4 if hypertune else 3, shuffle=True, random_state=42)
 
     # ----------- OPTUNA TUNING -----------
     def objective(trial):
@@ -78,7 +78,7 @@ def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> floa
             bootstrap_type = "Bayesian" 
             subsample = None
             bagging_temperature = trial.suggest_float("bagging_temperature", 0, 1)
-            iterations = trial.suggest_int("iterations", 500, 1500) if hypertune else trial.suggest_int("iterations", 400, 1000)
+            iterations = trial.suggest_int("iterations", 500, 1200) if hypertune else trial.suggest_int("iterations", 400, 1000)
             rsm = trial.suggest_float("rsm", 0.7, 1.0) if not _detect_gpu() else None
             simple_ctr = trial.suggest_categorical("simple_ctr", ["Borders", "Buckets"])
         else:
@@ -126,7 +126,7 @@ def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> floa
 
     print("Running hyperparameter tuning with Optuna...")
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=20 if hypertune else 10, timeout=None, show_progress_bar=True)
+    study.optimize(objective, n_trials=15 if hypertune else 10, timeout=None, show_progress_bar=True)
 
     print("\nBest Parameters Found:", study.best_params)
 
@@ -176,7 +176,7 @@ def trainCatboost(version: int, train_df: pd.DataFrame, hypertune=False) -> floa
 
     print("\nCatBoost model training complete and saved!")
 
-    return threshold
+    return threshold, y_proba
 
 def testCatboost(version: int, test_df, ids, threshold):
     FEATURE_PATH = getModelDir("feature", version, "catboost")
@@ -200,3 +200,5 @@ def testCatboost(version: int, test_df, ids, threshold):
     output_df.to_csv(PRED_PATH, index=False)
     print(f"\nPredictions saved to: {PRED_PATH}")
     print("Training + prediction complete.")
+
+    return y_proba

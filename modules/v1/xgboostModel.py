@@ -207,7 +207,7 @@ def trainXgboost(version: int, train_df) -> float:
     # persist artifacts
     joblib.dump(best_model, MODEL_PATH)
 
-    return threshold
+    return threshold, y_proba_valid
 
 def testXgboost(version, test_df, ids, threshold):
     FEATURE_PATH = getModelDir("feature", version, "xgboost")
@@ -230,3 +230,5 @@ def testXgboost(version, test_df, ids, threshold):
     output_df.to_csv(PRED_PATH, index=False)
     print(f"\nPredictions saved to: {PRED_PATH}")
     print("Training + prediction complete.")
+
+    return y_proba_test

@@ -19,3 +19,24 @@
         "od_wait": 54
     }
 }
+{
+    "timestamp": "2025-11-01 00:05:43",
+    "best_score": 0.6249393109943783,
+    "best_params": {
+        "bagging_temperature": 0.743632323423769,
+        "iterations": 439,
+        "simple_ctr": "Buckets",
+        "depth": 6,
+        "learning_rate": 0.035504484362502496,
+        "l2_leaf_reg": 0.24789786098654493,
+        "random_strength": 0.9733399819966145,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 3,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 7,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 86
+    }
+}
