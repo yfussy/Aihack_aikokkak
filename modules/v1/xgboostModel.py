@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 
 from sklearn.model_selection import train_test_split, StratifiedKFold, RandomizedSearchCV
+import optuna
 from sklearn.metrics import (
     classification_report,
     confusion_matrix,
@@ -19,7 +20,7 @@ from imblearn.over_sampling import SMOTE
 
 # try to import xgboost and detect version
 try:
-    from xgboost import XGBClassifier
+    from xgboost import XGBClassifier, DMatrix, train
 except Exception as e:
     raise ImportError(
         "xgboost is not installed or failed to import. "
@@ -87,16 +88,6 @@ def trainXgboost(version: int, train_df) -> float:
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # SMOTE (apply if imbalance is significant)
-    imbalance_ratio = (y_train.value_counts().max() / y_train.value_counts().min())
-    if imbalance_ratio > 1.5:
-        sm = SMOTE(random_state=42, sampling_strategy="auto")
-        X_train_res, y_train_res = sm.fit_resample(X_train, y_train)
-        print(f"SMOTE applied. Imbalance ratio before: {imbalance_ratio:.2f}")
-    else:
-        X_train_res, y_train_res = X_train, y_train
-        print(f"SMOTE skipped. Imbalance ratio: {imbalance_ratio:.2f}")
-
     # ------------------- GPU DETECTION -------------------
     gpu_available = _detect_gpu()
     if gpu_available:
@@ -116,50 +107,70 @@ def trainXgboost(version: int, train_df) -> float:
         early_stopping_rounds=50,
     )
 
-    param_grid = {
-        "n_estimators": [300, 400, 600],
-        "max_depth": [6, 8, 10],
-        "learning_rate": [0.005, 0.01, 0.02],
-        "subsample": [0.6, 0.8, 1.0],
-        "colsample_bytree": [0.6, 0.8, 1.0],
-        "min_child_weight": [1, 3, 5],
-        "gamma": [0, 0.1, 0.2, 0.3],
-        "reg_alpha": [0, 0.01, 0.1],
-        "reg_lambda": [1, 1.5, 2],
-        # scale_pos_weight helps with imbalance if desired (tune or set based on class ratio)
-        "scale_pos_weight": [1, max(1, int(imbalance_ratio // 1)), max(1, int(imbalance_ratio // 1) * 2)],
-    }
+    imbalance_ratio = (y_train.value_counts().max() / y_train.value_counts().min())
 
-    # use stratified k-fold for outer cross-validation in RandomizedSearch
-    skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=42)
+    def objective(trial):
+        # parameter search space
+        params = {
+            "objective": "binary:logistic",
+            "eval_metric": "auc",
+            "scale_pos_weight": imbalance_ratio,
+            "tree_method": "hist",
+            "max_depth": trial.suggest_int("max_depth", 3, 10),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+            "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+            "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+            "gamma": trial.suggest_float("gamma", 0.0, 5.0),
+            "min_child_weight": trial.suggest_float("min_child_weight", 1.0, 10.0),
+            "lambda": trial.suggest_float("lambda", 1e-3, 10.0, log=True),
+            "alpha": trial.suggest_float("alpha", 1e-3, 10.0, log=True)
+        }
 
-    search = RandomizedSearchCV(
-        base_model,
-        param_distributions=param_grid,
-        n_iter=N_ITER,
-        scoring="roc_auc",
-        cv=skf,
-        verbose=1,
-        n_jobs=-1,
-        random_state=42,
-        return_train_score=False,
+        kf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        scores = []
+
+        for train_idx, valid_idx in kf.split(X, y):
+            dtrain = DMatrix(X.iloc[train_idx], label=y.iloc[train_idx])
+            dvalid = DMatrix(X.iloc[valid_idx], label=y.iloc[valid_idx])
+
+            model = train(
+                params,
+                dtrain,
+                num_boost_round=3000,
+                evals=[(dvalid, "valid")],
+                early_stopping_rounds=100,
+                verbose_eval=False
+            )
+
+            preds = model.predict(dvalid)
+            score = roc_auc_score(y[valid_idx], preds)
+            scores.append(score)
+
+            # Optuna prune bad trials early
+            trial.report(np.mean(scores), len(scores))
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+        return np.mean(scores)
+
+
+    # Run optimization
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=optuna.samplers.TPESampler(seed=42),
+        pruner=optuna.pruners.MedianPruner()
     )
 
-    # We pass early stopping via fit_params so each candidate uses early stopping on the validation set.
-    fit_params = {
-        "eval_set": [(X_valid, y_valid)],
-        "verbose": False,
-    }
+    study.optimize(objective, n_trials=50, show_progress_bar=True)
 
-    print("Tuning hyperparameters with early stopping (using validation set)...")
-    search.fit(X_train_res, y_train_res, **fit_params)
-    best_model = search.best_estimator_
-    print("Best Parameters Found:", search.best_params_)
+    print("Best AUC:", study.best_value)
+    print("Best Params:", study.best_params)
+
 
     param_data = {
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "best_score": search.best_score_,
-        "best_params": search.best_params_
+        "best_score": study.best_value,
+        "best_params": study.best_params
     }
 
     with open(PARAM_PATH, "a") as f:
@@ -168,15 +179,14 @@ def trainXgboost(version: int, train_df) -> float:
 
     print("Logged best parameters to " + PARAM_PATH + ".json")
 
+    best_params = {
+        **study.best_params,
+        "loss_function": "Logloss",
+        "random_seed": 42
+    }
 
-    best_model.set_params(tree_method="hist", device="cuda")
-
-    best_model.fit(
-        X_train_res,
-        y_train_res,
-        eval_set=[(X_valid, y_valid)],
-        verbose=True,
-    )
+    best_model = XGBClassifier(**best_params)
+    best_model.fit(X_train, y_train)
 
     # ------------------- VALIDATION METRICS -------------------
     y_proba_valid = best_model.predict_proba(X_valid)[:, 1]
@@ -210,7 +220,7 @@ def trainXgboost(version: int, train_df) -> float:
 def testXgboost(version, test_df, ids, threshold):
     FEATURE_PATH = getModelDir("feature", version, "xgboost")
     MODEL_PATH = getModelDir("model", version, "xgboost")
-    PRED_PATH = getPredDir(3, "prediction_xgboost")
+    PRED_PATH = getPredDir(version, "prediction_xgboost")
 
     model: XGBClassifier = joblib.load(MODEL_PATH)
     feature_names = joblib.load(FEATURE_PATH)
