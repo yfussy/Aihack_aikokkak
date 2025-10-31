@@ -1,0 +1,126 @@
+{
+    "timestamp": "2025-10-31 21:50:09",
+    "best_score": 0.5846156064625464,
+    "best_params": {
+        "bagging_temperature": 0.059467174596613215,
+        "iterations": 526,
+        "simple_ctr": "FloatTargetMeanValue",
+        "depth": 8,
+        "learning_rate": 0.037549172758622025,
+        "l2_leaf_reg": 0.8640508923114414,
+        "random_strength": 4.912253025640818,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 2,
+        "leaf_estimation_method": "Newton",
+        "one_hot_max_size": 3,
+        "max_ctr_complexity": 2,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 51
+    }
+}
+{
+    "timestamp": "2025-10-31 22:13:14",
+    "best_score": 0.5801600909858552,
+    "best_params": {
+        "bagging_temperature": 0.8249932090270135,
+        "iterations": 513,
+        "simple_ctr": "FeatureFreq",
+        "depth": 7,
+        "learning_rate": 0.013335101007282989,
+        "l2_leaf_reg": 0.016557766573089144,
+        "random_strength": 3.121357653539851,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 3,
+        "leaf_estimation_method": "Newton",
+        "one_hot_max_size": 7,
+        "max_ctr_complexity": 1,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 35
+    }
+}
+{
+    "timestamp": "2025-10-31 22:44:33",
+    "best_score": 0.5647117231102771,
+    "best_params": {
+        "bagging_temperature": 0.811744513820107,
+        "iterations": 734,
+        "simple_ctr": "Borders",
+        "depth": 5,
+        "learning_rate": 0.024719269716414066,
+        "l2_leaf_reg": 0.010298573582507251,
+        "random_strength": 1.436504459487683,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 2,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 9,
+        "max_ctr_complexity": 1,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 97
+    }
+}
+{
+    "timestamp": "2025-10-31 22:50:32",
+    "best_score": 0.5602344272955062,
+    "best_params": {
+        "bagging_temperature": 0.7143997381975801,
+        "iterations": 665,
+        "simple_ctr": "FeatureFreq",
+        "depth": 4,
+        "learning_rate": 0.019838134452308014,
+        "l2_leaf_reg": 3.817445222067332,
+        "random_strength": 0.1838868770414062,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 2,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 2,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 47
+    }
+}
+{
+    "timestamp": "2025-10-31 22:59:28",
+    "best_score": 0.5684812687944208,
+    "best_params": {
+        "bagging_temperature": 0.34825522686458865,
+        "iterations": 774,
+        "simple_ctr": "FloatTargetMeanValue",
+        "depth": 3,
+        "learning_rate": 0.07245745122793418,
+        "l2_leaf_reg": 0.031430945699344556,
+        "random_strength": 0.24492944101740746,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 1,
+        "leaf_estimation_method": "Newton",
+        "one_hot_max_size": 5,
+        "max_ctr_complexity": 1,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 78
+    }
+}
+{
+    "timestamp": "2025-10-31 23:23:00",
+    "best_score": 0.5657518145271917,
+    "best_params": {
+        "bagging_temperature": 0.45409113879729934,
+        "iterations": 957,
+        "simple_ctr": "Borders",
+        "depth": 4,
+        "learning_rate": 0.05187890880704019,
+        "l2_leaf_reg": 2.0416558232342257,
+        "random_strength": 0.15938891297351762,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 3,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 7,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 36
+    }
+}
