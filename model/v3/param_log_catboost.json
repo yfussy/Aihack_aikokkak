@@ -1,0 +1,22 @@
+{
+    "timestamp": "2025-10-31 22:42:00",
+    "best_score": 0.6268373157457532,
+    "best_params": {
+        "bootstrap_type": "Bernoulli",
+        "subsample": 0.8632705090735316,
+        "iterations": 642,
+        "simple_ctr": "Borders",
+        "depth": 5,
+        "learning_rate": 0.05302800979316938,
+        "l2_leaf_reg": 0.04224695536089089,
+        "random_strength": 0.19866454566505828,
+        "grow_policy": "Lossguide",
+        "leaf_estimation_iterations": 4,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 9,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": "Balanced",
+        "od_type": "IncToDec",
+        "od_wait": 59
+    }
+}
