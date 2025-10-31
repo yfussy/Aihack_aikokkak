@@ -19,3 +19,66 @@
         "od_wait": 54
     }
 }
+{
+    "timestamp": "2025-11-01 01:03:32",
+    "best_score": 0.5668673357955986,
+    "best_params": {
+        "bagging_temperature": 0.34492278850503755,
+        "iterations": 815,
+        "simple_ctr": "Borders",
+        "depth": 5,
+        "learning_rate": 0.0678741087823142,
+        "l2_leaf_reg": 0.0426890674788475,
+        "random_strength": 0.40205724798414294,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 3,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 3,
+        "max_ctr_complexity": 2,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 62
+    }
+}
+{
+    "timestamp": "2025-11-01 01:09:27",
+    "best_score": 0.567269287287387,
+    "best_params": {
+        "bagging_temperature": 0.9896488359280176,
+        "iterations": 759,
+        "simple_ctr": "Borders",
+        "depth": 3,
+        "learning_rate": 0.06370855392787496,
+        "l2_leaf_reg": 0.09302475900345955,
+        "random_strength": 1.5344348128150527,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 5,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 10,
+        "max_ctr_complexity": 2,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 96
+    }
+}
+{
+    "timestamp": "2025-11-01 01:36:29",
+    "best_score": 0.5651120763864559,
+    "best_params": {
+        "bagging_temperature": 0.5435287464098958,
+        "iterations": 792,
+        "simple_ctr": "Buckets",
+        "depth": 5,
+        "learning_rate": 0.07383500613642323,
+        "l2_leaf_reg": 3.980181043132135,
+        "random_strength": 0.9599984961373049,
+        "grow_policy": "SymmetricTree",
+        "leaf_estimation_iterations": 4,
+        "leaf_estimation_method": "Gradient",
+        "one_hot_max_size": 10,
+        "max_ctr_complexity": 3,
+        "auto_class_weights": null,
+        "od_type": "IncToDec",
+        "od_wait": 56
+    }
+}
